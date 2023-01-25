@@ -1,86 +1,89 @@
-- name: Delete local directory {{ new_key_cert_options.base_path }} if does not exist
-  when: new_key_cert_options.key_remove|d(false) or new_key_cert_options.key_delete|d(false)
+- name: Delete local directory {{ key_cert_options_overide.base_path }} if does not exist
+  when: key_cert_options_overide.key_delete|d(false) or key_cert_options_overide.delete|d(false)
   local_action:
     module: file
-    path: "{{ new_key_cert_options.base_path }}"
+    path: "{{ key_cert_options_overide.base_path }}"
     state: absent
-
-- name: Create local directory {{ new_key_cert_options.base_path }}
+- name: Create local directory {{ key_cert_options_overide.base_path }}
   local_action:
     module: file
-    path: "{{ new_key_cert_options.base_path }}"
+    path: "{{ key_cert_options_overide.base_path }}"
     state: directory
-    mode: 0750
+    mode: 0700
     recurse: true
 
-- name: Generate private key type {{ new_key_cert_options.type }} name {{ key_cert_name }}
+
+
+- name: Generate private key type {{ key_cert_options_overide.type }} name {{ key_cert_name }}
   block:
     - register: privkey_stat
       local_action:
         module: stat
-        path: "{{ new_key_cert_options.base_path }}/privkey.pem"
+        path: "{{ key_cert_options_overide.base_path }}/key.pem"
     - when: not privkey_stat.stat.exists
       register: privkey_creation
       local_action:
         module: community.crypto.openssl_privatekey
         select_crypto_backend: cryptography
-        path: "{{ new_key_cert_options.base_path }}/privkey.pem"
-        passphrase: "{{ new_key_cert_options.key_pass|d(new_key_cert_options.key_passphrase)|d(new_key_cert_options.key_password)|d(omit) }}"
-        cipher: "{{ new_key_cert_options.key_cipher|d(openssl_PKI_def_key_cipher if new_key_cert_options.key_pass|d(new_key_cert_options.key_passphrase)|d(new_key_cert_options.key_password)|d(False) != False else omit ) }}"
-        curve: "{{ new_key_cert_options.key_curve|d(openssl_PKI_def_key_curve) }}"
-        size: "{{ new_key_cert_options.key_size|d(openssl_PKI_def_key_size) }}"
-        type: "{{ new_key_cert_options.key_type|d(openssl_PKI_def_key_type) }}"
-        format: "{{ new_key_cert_options.key_format|d(openssl_PKI_def_key_format) }}"
-        format_mismatch: "{{ new_key_cert_options.key_format|d('convert') }}"
+        path: "{{ key_cert_options_overide.base_path }}/key.pem"
+        passphrase: "{{ key_cert_options_overide.key_pass|d(omit) }}"
+        cipher: "{{ key_cert_options_overide.key_cipher|d(openssl_PKI_def_key_cipher if key_cert_options_overide.key_pass|d(False) != False else omit ) }}"
+        curve: "{{ key_cert_options_overide.key_curve|d(openssl_PKI_def_key_curve) }}"
+        size: "{{ key_cert_options_overide.key_size|d(openssl_PKI_def_key_size) }}"
+        type: "{{ key_cert_options_overide.key_type|d(openssl_PKI_def_key_type) }}"
+        format: "{{ key_cert_options_overide.key_format|d(openssl_PKI_def_key_format) }}"
+        format_mismatch: "{{ key_cert_options_overide.key_format|d('convert') }}"
+
+
 
 - name: Generate csr
   block:
     - register: key_cert_stat
       local_action:
         module: stat
-        path: "{{ new_key_cert_options.base_path }}/cert.pem"
-    - when: (privkey_creation|d({'changed':0})).changed == 1 or not key_cert_stat.stat.exists or new_key_cert_options.cert_remove|d(false) or new_key_cert_options.cert_delete|d(false)
+        path: "{{ key_cert_options_overide.base_path }}/cert.pem"
+    - when: (privkey_creation|d({'changed':0})).changed == 1 or not key_cert_stat.stat.exists or key_cert_options_overide.cert_delete|d(false)
       block:
         - name: Generate certificate request
-          register: crs_creation
+          register: csr_creation
           local_action:
             module: community.crypto.openssl_csr
             select_crypto_backend: cryptography
-            path: "{{ new_key_cert_options.base_path }}/csr.pem"
-            privatekey_path: "{{ new_key_cert_options.base_path }}/privkey.pem"
-            privatekey_passphrase: "{{ new_key_cert_options.key_pass|d(new_key_cert_options.key_passphrase)|d(new_key_cert_options.key_password)|d(omit) }}"
+            path: "{{ key_cert_options_overide.base_path }}/csr.pem"
+            privatekey_path: "{{ key_cert_options_overide.base_path }}/key.pem"
+            privatekey_passphrase: "{{ key_cert_options_overide.key_pass|d(omit) }}"
 
 
             ### Certificate info
-            common_name: "{{ new_key_cert_options.cert_common_name|d(new_key_cert_options.cert_name)|d(new_key_cert_options.name) }}"
+            common_name: "{{ key_cert_options_overide.cert_common_name|d(key_cert_options_overide.cert_name)|d(key_cert_options_overide.name) }}"
 
-            country_name: "{{ new_key_cert_options.cert_country_code|d(CA_def_country_code)|d(omit) }}"
-            state_or_province_name: "{{ new_key_cert_options.cert_country|d(key_cert_state)|d(CA_def_country)|d(CA_def_state)|d(omit) }}"
-            locality_name: "{{ new_key_cert_options.cert_locality|d(new_key_cert_options.cert_city)|d(CA_def_locality)|d(CA_def_city)|d(omit) }}"
-            organization_name: "{{ new_key_cert_options.cert_organisation|d(new_key_cert_options.cert_compagny)|d(CA_def_organisation)|d(CA_def_compagny)|d(omit) }}"
-            organizational_unit_name: "{{ new_key_cert_options.cert_organisational_unit|d(CA_def_organisational_unit)|d(omit) }}"
+            country_name: "{{ key_cert_options_overide.cert_country_code|d(CA_def_country_code)|d(omit) }}"
+            state_or_province_name: "{{ key_cert_options_overide.cert_country|d(key_cert_state)|d(CA_def_country)|d(CA_def_state)|d(omit) }}"
+            locality_name: "{{ key_cert_options_overide.cert_locality|d(key_cert_options_overide.cert_city)|d(CA_def_locality)|d(CA_def_city)|d(omit) }}"
+            organization_name: "{{ key_cert_options_overide.cert_organisation|d(key_cert_options_overide.cert_compagny)|d(CA_def_organisation)|d(CA_def_compagny)|d(omit) }}"
+            organizational_unit_name: "{{ key_cert_options_overide.cert_organisational_unit|d(CA_def_organisational_unit)|d(omit) }}"
 
-            subject: "{{ new_key_cert_options.cert_subj|d(omit) }}"
-            subject_alt_name: "{{ new_key_cert_options.cert_subj_alt|d(new_key_cert_options.cert_alt)|d(omit) }}"
-            subject_alt_name_critical: "{{ new_key_cert_options.cert_alt_subj_crt|d(new_key_cert_options.cert_alt_crt)|d(omit) }}"
+            subject: "{{ key_cert_options_overide.cert_subj|d(omit) }}"
+            subject_alt_name: "{{ key_cert_options_overide.cert_subj_alt|d(key_cert_options_overide.cert_alt)|d(omit) }}"
+            subject_alt_name_critical: "{{ key_cert_options_overide.cert_alt_subj_crt|d(key_cert_options_overide.cert_alt_crt)|d(omit) }}"
 
-            email_address: "{{ new_key_cert_options.cert_email|d(CA_def_email)|d(omit) }}"
+            email_address: "{{ key_cert_options_overide.cert_email|d(CA_def_email)|d(omit) }}"
 
-            create_subject_key_identifier: "{{ new_key_cert_options.cert_add_SKI|d(openssl_PKI_def_cert_add_SKI) }}"
-            use_common_name_for_san: "{{ new_key_cert_options.cert_CN_to_san|d(omit) }}"
+            create_subject_key_identifier: "{{ key_cert_options_overide.cert_add_SKI|d(openssl_PKI_def_cert_add_SKI) }}"
+            use_common_name_for_san: "{{ key_cert_options_overide.cert_CN_to_san|d(omit) }}"
 
             
             ### Usage
-            basic_constraints: "{{ new_key_cert_options.cert_constraints|d(omit) }}"
-            basic_constraints_critical: "{{ new_key_cert_options.cert_constraints_crt|d(new_key_cert_options.key_crt)|d(omit) }}"
-            key_usage: "{{ new_key_cert_options.key_usage|d(omit) }}"
-            key_usage_critical: "{{ new_key_cert_options.key_usage_crt|d(new_key_cert_options.key_crt)|d(omit) }}"
-            extended_key_usage: "{{ new_key_cert_options.key_ext_usage|d(omit) }}"
-            extended_key_usage_critical: "{{ new_key_cert_options.key_ext_usage_crt|d(new_key_cert_options.key_ext_crt)|d(omit) }}"
+            basic_constraints: "{{ key_cert_options_overide.cert_constraints|d(omit) }}"
+            basic_constraints_critical: "{{ key_cert_options_overide.cert_constraints_crt|d(key_cert_options_overide.key_crt)|d(omit) }}"
+            key_usage: "{{ key_cert_options_overide.key_usage|d(omit) }}"
+            key_usage_critical: "{{ key_cert_options_overide.key_usage_crt|d(key_cert_options_overide.key_crt)|d(omit) }}"
+            extended_key_usage: "{{ key_cert_options_overide.key_ext_usage|d(omit) }}"
+            extended_key_usage_critical: "{{ key_cert_options_overide.key_ext_usage_crt|d(key_cert_options_overide.key_ext_crt)|d(omit) }}"
 
-            name_constraints_critical: "{{ new_key_cert_options.name_constraints_crt|d(omit) }}"
-            name_constraints_excluded: "{{ new_key_cert_options.name_constraints_excluded|d(omit) }}"
-            name_constraints_permitted: "{{ new_key_cert_options.name_constraints_permitted|d(omit) }}"
+            name_constraints_critical: "{{ key_cert_options_overide.name_constraints_crt|d(omit) }}"
+            name_constraints_excluded: "{{ key_cert_options_overide.name_constraints_excluded|d(omit) }}"
+            name_constraints_permitted: "{{ key_cert_options_overide.name_constraints_permitted|d(omit) }}"
 
 
             ### To ADD
@@ -90,6 +93,6 @@
             # authority_key_identifier
 
             ### Other conf
-            ocsp_must_staple: "{{ new_key_cert_options.cert_ocsp_staple|d(omit) }}"
-            ocsp_must_staple_critical: "{{ new_key_cert_options.cert_ocsp_staple_crt|d(omit) }}"
-            digest: "{{ new_key_cert_options.cert_digest|d(openssl_PKI_def_cert_digest) }}"
+            ocsp_must_staple: "{{ key_cert_options_overide.cert_ocsp_staple|d(omit) }}"
+            ocsp_must_staple_critical: "{{ key_cert_options_overide.cert_ocsp_staple_crt|d(omit) }}"
+            digest: "{{ key_cert_options_overide.cert_digest|d(openssl_PKI_def_cert_digest) }}"

@@ -1,7 +1,7 @@
 ---
 # new_key_cert_options:
 #   type: root_ca = self_signed), other = root_ca/SUB_root_ca signed)
-#   remove:
+#   delete:
   
 #   cert_name:
 #   cert_country_code:
@@ -30,35 +30,32 @@
 - name: Create root CA certificate
   block:
     - set_fact:
-        ca_key_cert_options: "{{ 
-          root_ca_key_cert_options|combine(
-              { 'key_usage': ['keyCertSign', 'cRLSign'],
-                'key_usage_crt': true,
-                'key_ext_usage': [],
-                'key_ext_usage_crt': false,
-                'cert_CN_to_san': false,
-                'cert_constraints_crt': true,
-                'cert_constraints': [ 'CA:TRUE', 'pathlen:0'],
-                'cert_add_SKI': true,
-                'name': root_ca_key_cert_options.cert_common_name|d(root_ca_key_cert_options.cert_name)|d(root_ca_key_cert_options.name)
-              })|combine(
-              {
-                'key_pass': root_ca_key_cert_options.key_pass|d(root_ca_key_cert_options.key_passphrase)|d(root_ca_key_cert_options.key_password)
-              } if root_ca_key_cert_options.key_pass|d(root_ca_key_cert_options.key_passphrase)|d(root_ca_key_cert_options.key_password)|d(false) else {})|combine(
-              {
-                'base_path': certificates_base_path+'/intermediate-ca/'+root_ca_key_cert_options.cert_common_name|d(root_ca_key_cert_options.cert_name)|d(root_ca_key_cert_options.name)
-              } if not root_ca_key_cert_options.base_path|d(false) else {})
-          }}" 
+        root_ca_key_cert_options_overide: "{{ 
+          root_ca_key_cert_options|combine(root_ca_key_options_template)|combine(
+            {
+            'name': root_ca_key_cert_options.cert_common_name|d(root_ca_key_cert_options.cert_name)|d(root_ca_key_cert_options.name)
+            }
+          )|combine(
+              { 'base_path': certificates_base_path+'/root-ca/'+root_ca_key_cert_options.cert_common_name|d(root_ca_key_cert_options.cert_name)|d(root_ca_key_cert_options.name) }
+            if not root_ca_key_cert_options.base_path|d(false) else
+              {}
+          )
+          }}"
+
     - set_fact:
-        new_key_cert_options: "{{ ca_key_cert_options }}"
+        key_cert_options_overide: "{{ root_ca_key_cert_options_overide }}"
     - include_tasks: generate_csr.yml
+
     - name: Sign root CA certificate request
       local_action:
         module: community.crypto.x509_certificate
         select_crypto_backend: cryptography
-        path: "{{ ca_key_cert_options.base_path }}/cert.pem"
-        csr_path: "{{ new_key_cert_options.base_path }}/csr.pem"
+        path: "{{ root_ca_key_cert_options_overide.base_path }}/cert.pem"
+        csr_path: "{{ root_ca_key_cert_options_overide.base_path }}/csr.pem"
         provider: selfsigned
-        privatekey_path: "{{ ca_key_cert_options.base_path }}/privkey.pem"
-        privatekey_passphrase: "{{ ca_key_cert_options.key_pass|d(omit) }}"
+        privatekey_path: "{{ root_ca_key_cert_options_overide.base_path }}/key.pem"
+        privatekey_passphrase: "{{ root_ca_key_cert_options_overide.key_pass|d(omit) }}"
+
+    - set_fact:
+        ca_key_cert_options_overide: "{{ root_ca_key_cert_options_overide }}"
     - import_tasks: ca_operation.yml

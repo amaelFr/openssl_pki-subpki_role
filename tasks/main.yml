@@ -10,7 +10,7 @@
     loop_var: root_ca_key_cert_options
 
 
-# - set_fact:
-#     new_key_cert_options: "{{ { 'intermediate_ca': intermediate_ca|d([]), 'certificate': certificate|d([]) } }}"
-# - import_tasks: ca_operation.yml
+- set_fact:
+    ca_key_cert_options_overide: "{{ { 'intermediate_ca': intermediate_ca|d([]), 'certificate': certificate|d([]) } }}"
+- import_tasks: ca_operation.yml
 

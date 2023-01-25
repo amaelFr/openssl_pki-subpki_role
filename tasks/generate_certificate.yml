@@ -1,3 +1,47 @@
 ---
-- debug:
-    msg: Generate final certificate
+
+- name: Create certificate
+  block:
+    - when: certificate_key_cert_options.type == 'serv_auth'
+      set_fact:
+        certificate_key_cert_options_overide: "{{ 
+            certificate_key_cert_options|combine(certificate_template_serv_auth)
+        }}"
+
+    - set_fact:
+        certificate_key_cert_options_overide: "{{ 
+            certificate_key_cert_options_overide|combine(
+              {
+                'name': certificate_key_cert_options.cert_common_name|d(certificate_key_cert_options.cert_name)|d(certificate_key_cert_options.name)
+              }
+            )|combine(
+                { 'base_path': certificate_key_cert_options.ca_base_path|d(certificates_base_path)+'/certificate/'+certificate_key_cert_options.cert_common_name|d(certificate_key_cert_options.cert_name)|d(certificate_key_cert_options.name)}
+              if not certificate_key_cert_options.base_path|d(false) else
+                {}
+            )
+          }}" # 'key_usage': ['digitalSignature', 'keyCertSign', 'cRLSign'],
+
+    - debug:
+        var: certificate_key_cert_options_overide
+
+    - set_fact:
+        key_cert_options_overide: "{{ certificate_key_cert_options_overide }}"
+    - include_tasks: generate_csr.yml
+
+    - name: Sign certificate request
+      local_action:
+        module: community.crypto.x509_certificate
+        select_crypto_backend: cryptography
+        path: "{{ certificate_key_cert_options_overide.base_path }}/cert.pem"
+        csr_path: "{{ certificate_key_cert_options_overide.base_path }}/csr.pem"
+        
+        ### OWNCA provider options
+        provider: ownca
+        ownca_path: "{{ certificate_key_cert_options_overide.ca_cert|d(certificate_key_cert_options_overide.ca_base_path+'/cert.pem') }}"
+        ownca_privatekey_path: "{{ certificate_key_cert_options_overide.ca_key|d(certificate_key_cert_options_overide.ca_base_path+'/key.pem') }}"
+        ownca_privatekey_passphrase: "{{ certificate_key_cert_options_overide.ca_key_pass|d(omit) }}"
+
+        ### TODO
+        ownca_not_after: "{{ ca_key_cert.ca_max_period|d(openssl_PKI_def_ca_max_period) }}"
+        ownca_create_subject_key_identifier: "{{ ca_key_cert_options.ca_add_SKI|d(openssl_PKI_def_ca_add_SKI) }}"
+        ownca_digest: "{{ ca_key_cert.ca_cert_digest|d(openssl_PKI_def_cert_digest) }}"

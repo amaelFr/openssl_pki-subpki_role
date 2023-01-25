@@ -10,7 +10,36 @@ openssl_PKI_def_key_type: RSA
 openssl_PKI_def_cert_digest: sha512
 openssl_PKI_def_cert_add_SKI: True
 
-openssl_PKI_def_ca_max_period: 365d
+openssl_PKI_def_ca_max_period: +365d
 openssl_PKI_def_ca_add_SKI: create_if_not_provided
 
-certificates_base_path: "{{ inventory_dir+'/certificates' }}"
+certificates_base_path: "{{ inventory_dir|d('./')+'/certificates' }}"
+
+
+
+
+
+root_ca_key_options_template:
+  key_usage: [ 'digitalSignature'] # 'keyCertSign', 'cRLSign', critical, digitalSignature
+  key_usage_crt: true
+  key_ext_usage: []
+  key_ext_usage_crt: false
+  cert_CN_to_san: false
+  cert_constraints_crt: true
+  cert_constraints: [ 'CA:TRUE', 'pathlen:0'] # critical
+  cert_add_SKI: true
+
+intermediate_ca_key_options_template:
+  key_usage: ['keyCertSign', 'cRLSign'] # critical, digitalSignature
+  key_usage_crt: true
+  key_ext_usage: []
+  key_ext_usage_crt: false
+  cert_CN_to_san: false
+  cert_constraints: [ 'CA:FALSE' ] # critical, CA:true, pathlen:0
+
+### Todo certificate template
+certificate_template_serv_auth:
+  key_usage: []  # critical, digitalSignature, keyEncipherment
+  key_ext_usage: ['serverAuth']
+  
+  cert_constraints: [ 'CA:FALSE' ]
