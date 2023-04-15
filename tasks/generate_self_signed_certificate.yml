@@ -1,0 +1,53 @@
+---
+- name: Create self signed certificate
+  block:
+    - set_fact:
+        self_signed_key_cert_options_overide: "{{ 
+          self_signed_key_cert_options|combine(certificate_templates[self_signed_key_cert_options.type])|combine(
+            {
+            'name': self_signed_key_cert_options.cert_common_name|d(self_signed_key_cert_options.cert_name)|d(self_signed_key_cert_options.name)
+            }
+          )|combine(
+              { 'base_path': certificates_base_path+'/self_signed/'+self_signed_key_cert_options.cert_common_name|d(self_signed_key_cert_options.cert_name)|d(self_signed_key_cert_options.name) }
+            if not self_signed_key_cert_options.base_path|d(false) else
+              {}
+          )
+          }}"
+
+    # - set_fact:
+    #     key_cert_options_overide: "{{ self_signed_key_cert_options_overide }}"
+    - include_tasks: generate_key_csr.yml
+      vars:
+        key_cert_options_overide: "{{ self_signed_key_cert_options_overide }}"
+
+    - name: Sign self signed certificate request
+      local_action:
+        module: community.crypto.x509_certificate
+        select_crypto_backend: cryptography
+        path: "{{ self_signed_key_cert_options_overide.base_path }}/cert.pem"
+        csr_path: "{{ self_signed_key_cert_options_overide.base_path }}/csr.pem"
+        provider: selfsigned
+        privatekey_path: "{{ self_signed_key_cert_options_overide.base_path }}/key.pem"
+        privatekey_passphrase: "{{ self_signed_key_cert_options_overide.key_pass|d(omit) }}"
+
+    - name: Get cert content
+      local_action:
+        module: slurp
+        src: "{{ self_signed_key_cert_options_overide.base_path }}/cert.pem"
+      register: self_signed_cert_slurp
+
+    - name: Create certificate and key file
+      local_action:
+        module: copy
+        content: "{{ privatekey_slurp['content']|b64decode + self_signed_cert_slurp['content']|b64decode }}"
+        dest: "{{ self_signed_key_cert_options_overide.base_path }}/cert_key.pem"
+    - name: Create full chain certificate and key file
+      local_action:
+        module: copy
+        content: "{{ privatekey_slurp['content']|b64decode + self_signed_cert_slurp['content']|b64decode }}"
+        dest: "{{ self_signed_key_cert_options_overide.base_path }}/full_cert_key.pem"
+    - name: Create full chain certificate
+      local_action:
+        module: copy
+        content: "{{ self_signed_cert_slurp['content']|b64decode }}"
+        dest: "{{ self_signed_key_cert_options_overide.base_path }}/full_cert.pem"

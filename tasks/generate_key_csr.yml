@@ -1,0 +1,103 @@
+- name: Delete local directory {{ key_cert_options_overide.base_path }} if does not exist
+  when: key_cert_options_overide.key_delete|d(false) or key_cert_options_overide.delete|d(false)
+  local_action:
+    module: file
+    path: "{{ key_cert_options_overide.base_path }}"
+    state: absent
+- name: Create local directory {{ key_cert_options_overide.base_path }}
+  local_action:
+    module: file
+    path: "{{ key_cert_options_overide.base_path }}"
+    state: directory
+    mode: 0700
+    recurse: true
+
+
+
+- name: Generate private key type {{ key_cert_options_overide.type }} name {{ key_cert_name }}
+  block:
+    - register: privkey_stat
+      local_action:
+        module: stat
+        path: "{{ key_cert_options_overide.base_path }}/key.pem"
+    - when: not privkey_stat.stat.exists
+      register: privkey_creation
+      local_action:
+        module: community.crypto.openssl_privatekey
+        select_crypto_backend: cryptography
+        path: "{{ key_cert_options_overide.base_path }}/key.pem"
+        passphrase: "{{ key_cert_options_overide.key_pass|d(omit) }}"
+        cipher: "{{ key_cert_options_overide.key_cipher|d(openssl_PKI_def_key_cipher if key_cert_options_overide.key_pass|d(False) != False else omit ) }}"
+        curve: "{{ key_cert_options_overide.key_curve|d(openssl_PKI_def_key_curve) }}"
+        size: "{{ key_cert_options_overide.key_size|d(openssl_PKI_def_key_size) }}"
+        type: "{{ key_cert_options_overide.key_type|d(openssl_PKI_def_key_type) }}"
+        format: "{{ key_cert_options_overide.key_format|d(openssl_PKI_def_key_format) }}"
+        format_mismatch: "{{ key_cert_options_overide.key_format|d('convert') }}"
+
+- name: Get private key content
+  local_action:
+    module: slurp
+    src: "{{ key_cert_options_overide.base_path }}/key.pem"
+  register: privatekey_slurp
+
+
+- name: Generate csr
+  block:
+    - register: key_cert_stat
+      local_action:
+        module: stat
+        path: "{{ key_cert_options_overide.base_path }}/cert.pem"
+    - when: (privkey_creation|d({'changed':0})).changed == 1 or not key_cert_stat.stat.exists or key_cert_options_overide.cert_delete|d(false)
+      block:
+        - name: Generate certificate request
+          register: csr_creation
+          local_action:
+            module: community.crypto.openssl_csr
+            select_crypto_backend: cryptography
+            path: "{{ key_cert_options_overide.base_path }}/csr.pem"
+            privatekey_path: "{{ key_cert_options_overide.base_path }}/key.pem"
+            privatekey_passphrase: "{{ key_cert_options_overide.key_pass|d(omit) }}"
+
+
+            ### Certificate info
+            common_name: "{{ key_cert_options_overide.cert_common_name|d(key_cert_options_overide.cert_CN)|d(key_cert_options_overide.cert_name)|d(key_cert_options_overide.name) }}"
+
+            country_name: "{{ key_cert_options_overide.cert_country_code|d(key_cert_options_overide.cert_C)|d(CA_def_country_code)|d(omit) }}"
+            state_or_province_name: "{{ key_cert_options_overide.cert_country|d(key_cert_options_overide.cert_ST)|d(key_cert_state)|d(CA_def_country)|d(CA_def_state)|d(omit) }}"
+            locality_name: "{{ key_cert_options_overide.cert_locality|d(key_cert_options_overide.cert_L)|d(key_cert_options_overide.cert_city)|d(CA_def_locality)|d(CA_def_city)|d(omit) }}"
+            organization_name: "{{ key_cert_options_overide.cert_organisation|d(key_cert_options_overide.cert_O)|d(key_cert_options_overide.cert_compagny)|d(CA_def_organisation)|d(CA_def_compagny)|d(omit) }}"
+            organizational_unit_name: "{{ key_cert_options_overide.cert_organisational_unit|d(key_cert_options_overide.cert_OU)|d(CA_def_organisational_unit)|d(omit) }}"
+
+            subject: "{{ key_cert_options_overide.cert_subj|d(omit) }}"
+            subject_alt_name: "{{ key_cert_options_overide.cert_subj_alt|d(key_cert_options_overide.cert_alt)|d(omit) }}"
+            subject_alt_name_critical: "{{ key_cert_options_overide.cert_alt_subj_crt|d(key_cert_options_overide.cert_alt_crt)|d(omit) }}"
+
+            email_address: "{{ key_cert_options_overide.cert_email|d(key_cert_options_overide.cert_emailAddress)|d(key_cert_options_overide.cert_email_address)|d(CA_def_email)|d(omit) }}"
+
+            create_subject_key_identifier: "{{ key_cert_options_overide.cert_add_SKI|d(openssl_PKI_def_cert_add_SKI) }}"
+            use_common_name_for_san: "{{ key_cert_options_overide.cert_CN_to_san|d(omit) }}"
+
+            
+            ### Usage
+            basic_constraints: "{{ key_cert_options_overide.cert_constraints|d(omit) }}"
+            basic_constraints_critical: "{{ key_cert_options_overide.cert_constraints_crt|d(key_cert_options_overide.key_crt)|d(omit) }}"
+            key_usage: "{{ key_cert_options_overide.key_usage|d(omit) }}"
+            key_usage_critical: "{{ key_cert_options_overide.key_usage_crt|d(key_cert_options_overide.key_crt)|d(omit) }}"
+            extended_key_usage: "{{ key_cert_options_overide.key_ext_usage|d(omit) }}"
+            extended_key_usage_critical: "{{ key_cert_options_overide.key_ext_usage_crt|d(key_cert_options_overide.key_ext_crt)|d(omit) }}"
+
+            name_constraints_critical: "{{ key_cert_options_overide.name_constraints_crt|d(omit) }}"
+            name_constraints_excluded: "{{ key_cert_options_overide.name_constraints_excluded|d(omit) }}"
+            name_constraints_permitted: "{{ key_cert_options_overide.name_constraints_permitted|d(omit) }}"
+
+
+            ### To ADD
+            # crl_distribution_points
+            # authority_cert_issuer
+            # authority_cert_serial_number
+            # authority_key_identifier
+
+            ### Other conf
+            ocsp_must_staple: "{{ key_cert_options_overide.cert_ocsp_staple|d(omit) }}"
+            ocsp_must_staple_critical: "{{ key_cert_options_overide.cert_ocsp_staple_crt|d(omit) }}"
+            digest: "{{ key_cert_options_overide.cert_digest|d(openssl_PKI_def_cert_digest) }}"

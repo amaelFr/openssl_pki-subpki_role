@@ -1,0 +1,51 @@
+
+- name: Sign intermediate CA certificate request
+  local_action:
+    module: community.crypto.x509_certificate
+    select_crypto_backend: cryptography
+    path: "{{ cert_options_overide.base_path }}/cert.pem"
+    csr_path: "{{ cert_options_overide.base_path }}/csr.pem"
+    
+    ### OWNCA provider options
+    provider: ownca
+    ownca_path: "{{ cert_options_overide.ca_cert|d(cert_options_overide.ca_base_path+'/cert.pem') }}"
+    ownca_privatekey_path: "{{ cert_options_overide.ca_key|d(cert_options_overide.ca_base_path+'/key.pem') }}"
+    ownca_privatekey_passphrase: "{{ cert_options_overide.ca_key_pass|d(omit) }}"
+
+    ### TODO
+    ownca_not_after: "{{ ca_key_cert.ca_max_period|d(openssl_PKI_def_ca_max_period) }}"
+    ownca_create_subject_key_identifier: "{{ ca_key_cert_options.ca_add_SKI|d(openssl_PKI_def_ca_add_SKI) }}"
+    ownca_digest: "{{ ca_key_cert.ca_cert_digest|d(openssl_PKI_def_cert_digest) }}"
+
+
+- debug:
+    msg: hereeeee
+
+
+- name: Get cert content
+  local_action:
+    module: slurp
+    src: "{{ cert_options_overide.base_path }}/cert.pem"
+  register: cert_slurp
+- name: Get fullchain ca cert content
+  local_action:
+    module: slurp
+    src: "{{ cert_options_overide.ca_cert|d(cert_options_overide.ca_base_path+'/full_cert.pem') }}"
+  register: full_ca_cert_slurp
+
+
+- name: Create certificate and key file
+  local_action:
+    module: copy
+    content: "{{ privatekey_slurp['content']|b64decode + cert_slurp['content']|b64decode }}"
+    dest: "{{ cert_options_overide.base_path }}/cert_key.pem"
+- name: Create full chain certificate and key file
+  local_action:
+    module: copy
+    content: "{{ privatekey_slurp['content']|b64decode + cert_slurp['content']|b64decode + root_ca_cert_slurp['content']|b64decode }}"
+    dest: "{{ cert_options_overide.base_path }}/full_cert_key.pem"
+- name: Create full chain certificate
+  local_action:
+    module: copy
+    content: "{{ cert_slurp['content']|b64decode + root_ca_cert_slurp['content']|b64decode }}"
+    dest: "{{ cert_options_overide.base_path }}/full_cert.pem"

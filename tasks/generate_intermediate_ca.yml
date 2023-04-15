@@ -14,28 +14,14 @@
             )
           }}" # 'key_usage': ['digitalSignature', 'keyCertSign', 'cRLSign'],
 
-    - set_fact:
+    - include_tasks: generate_key_csr.yml
+      vars:
         key_cert_options_overide: "{{ intermediate_ca_key_cert_options_overide }}"
-    - include_tasks: generate_csr.yml
 
-    - name: Sign intermediate CA certificate request
-      local_action:
-        module: community.crypto.x509_certificate
-        select_crypto_backend: cryptography
-        path: "{{ intermediate_ca_key_cert_options_overide.base_path }}/cert.pem"
-        csr_path: "{{ intermediate_ca_key_cert_options_overide.base_path }}/csr.pem"
-        
-        ### OWNCA provider options
-        provider: ownca
-        ownca_path: "{{ intermediate_ca_key_cert_options_overide.ca_cert|d(intermediate_ca_key_cert_options_overide.ca_base_path+'/cert.pem') }}"
-        ownca_privatekey_path: "{{ intermediate_ca_key_cert_options_overide.ca_key|d(intermediate_ca_key_cert_options_overide.ca_base_path+'/key.pem') }}"
-        ownca_privatekey_passphrase: "{{ intermediate_ca_key_cert_options_overide.ca_key_pass|d(omit) }}"
+    - include_tasks: ca_sign.yml
+      vars:
+        cert_options_overide: "{{ intermediate_ca_key_cert_options_overide }}"
 
-        ### TODO
-        ownca_not_after: "{{ ca_key_cert.ca_max_period|d(openssl_PKI_def_ca_max_period) }}"
-        ownca_create_subject_key_identifier: "{{ ca_key_cert_options.ca_add_SKI|d(openssl_PKI_def_ca_add_SKI) }}"
-        ownca_digest: "{{ ca_key_cert.ca_cert_digest|d(openssl_PKI_def_cert_digest) }}"
-
-    - set_fact:
-        ca_key_cert_options_overide: "{{ intermediate_ca_key_cert_options_overide }}"    
     - import_tasks: ca_operation.yml
+      vars:
+        ca_key_cert_options_overide: "{{ intermediate_ca_key_cert_options_overide }}"

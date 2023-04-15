@@ -4,6 +4,7 @@
           {
             'ca_base_path': ca_key_cert_options_overide.base_path,
             'ca_cert': ca_key_cert_options_overide.base_path+'/cert.pem',
+            'ca_full_cert': ca_key_cert_options_overide.base_path+'/full_cert.pem',
             'ca_key': ca_key_cert_options_overide.base_path+'/key.pem',
             'ca_key_pass': ca_key_cert_options_overide.key_pass|d(omit)
           }
@@ -18,12 +19,12 @@
 
 - name: Generate intermediate CA certificates recursivly
   include_tasks: generate_intermediate_ca.yml
-  loop: "{{ ca_key_cert_options_overide.intermediate_ca|d([])|map('combine', ca_options_overide) }}"
+  loop: "{{ ca_key_cert_options_overide.intermediate_ca|d([])|map('combine', ca_options_overide|d({})) }}"
   loop_control:
     loop_var: intermediate_ca_key_cert_options
 
 - name: Generate serveurs certificates
   include_tasks: generate_certificate.yml
-  loop: "{{ ca_key_cert_options_overide.certificate|d([])|map('combine', ca_options_overide) }}"
+  loop: "{{ ca_key_cert_options_overide.certificate|d([])|map('combine', ca_options_overide|d({})) }}"
   loop_control:
     loop_var: certificate_key_cert_options

@@ -1,6 +1,6 @@
 ---
 # new_key_cert_options:
-#   type: root_ca = self_signed), other = root_ca/SUB_root_ca signed)
+#   type: root_ca = selfsigned), other = root_ca/SUB_root_ca signed)
 #   delete:
   
 #   cert_name:
@@ -42,9 +42,11 @@
           )
           }}"
 
-    - set_fact:
+    # - set_fact:
+    #     key_cert_options_overide: "{{ root_ca_key_cert_options_overide }}"
+    - include_tasks: generate_key_csr.yml
+      vars:
         key_cert_options_overide: "{{ root_ca_key_cert_options_overide }}"
-    - include_tasks: generate_csr.yml
 
     - name: Sign root CA certificate request
       local_action:
@@ -56,6 +58,30 @@
         privatekey_path: "{{ root_ca_key_cert_options_overide.base_path }}/key.pem"
         privatekey_passphrase: "{{ root_ca_key_cert_options_overide.key_pass|d(omit) }}"
 
-    - set_fact:
-        ca_key_cert_options_overide: "{{ root_ca_key_cert_options_overide }}"
+    - name: Get cert content
+      local_action:
+        module: slurp
+        src: "{{ root_ca_key_cert_options_overide.base_path }}/cert.pem"
+      register: root_ca_cert_slurp
+
+    - name: Create certificate and key file
+      local_action:
+        module: copy
+        content: "{{ privatekey_slurp['content']|b64decode + root_ca_cert_slurp['content']|b64decode }}"
+        dest: "{{ root_ca_key_cert_options_overide.base_path }}/cert_key.pem"
+    - name: Create full chain certificate and key file
+      local_action:
+        module: copy
+        content: "{{ privatekey_slurp['content']|b64decode + root_ca_cert_slurp['content']|b64decode }}"
+        dest: "{{ root_ca_key_cert_options_overide.base_path }}/full_cert_key.pem"
+    - name: Create full chain certificate
+      local_action:
+        module: copy
+        content: "{{ root_ca_cert_slurp['content']|b64decode }}"
+        dest: "{{ root_ca_key_cert_options_overide.base_path }}/full_cert.pem"
+
+    # - set_fact:
+    #     ca_key_cert_options_overide: "{{ root_ca_key_cert_options_overide }}"
     - import_tasks: ca_operation.yml
+      vars:
+        ca_key_cert_options_overide: "{{ root_ca_key_cert_options_overide }}"

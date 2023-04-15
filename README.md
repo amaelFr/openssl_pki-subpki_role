@@ -1,38 +1,113 @@
-Role Name
+openssl_pki
 =========
 
-A brief description of the role goes here.
+Generate certificate (root && sub CA && certificate)
 
 Requirements
 ------------
 
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+community.crypto
 
 Role Variables
 --------------
 
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
+```
+root_ca:
+  - name: root
+    delete: true
+    key_pass: a_password_for_key_
+    intermediate_ca:
+      - name: intermediate_ca_name
+        certificate:
+          - name: certificate_name
+            type: serv_auth
+          - name: certificate_name
+            type: serv_auth
+      - name: intermediate_ca_name
+        intermediate_ca:
+          - name: sub_intermediate_ca
+    certificates:
+intermediate_ca:
+  - name:
+    ca_key_path:
+    ca_key_pass:
+    ca_cert_path:
+certificate:
+  - name:
+    type:
+    ca_key_path:
+    ca_key_pass:
+    ca_cert_path:
+self_signed:
+  - name: 
+    type:
+
+base_path:
+subca_default_signatory:
+  type: ca subca
+  name: root
+  type: custom
+  key_path: ...key.pem
+  key_pass: ....
+  cert_path: ...cert.pem
+certificates:
+  - type: ca
+    cert_name: root
+  - type: subca
+    delete: false
+    cert_name: elastic
+
+    signatory:
+      type: ca
+      name: root
+    type: custom
+    key_path: ...key.pem
+    key_pass: ....
+    cert_path: ...cert.pem
+
+    cert_country_code:
+    cert_country:
+    cert_locality:
+    cert_organisation:
+    cert_organisational_unit:
+    cert_subj:
+    cert_subj_alt:
+    cert_email:
+    cert_digest:
+    cert_ocsp_staple:
+    cert_ocsp_staple_crt:
+
+    key_usage:
+    key_usage_crt:
+    key_ext_usage:
+    key_ext_crt:
+    key_cipher:
+    key_curve:
+    key_pass:
+    key_size:
+    key_type:
+```
 
 Dependencies
 ------------
 
-A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
-
 Example Playbook
 ----------------
 
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
-
-    - hosts: servers
-      roles:
-         - { role: username.rolename, x: 42 }
+roles:
+    - openssl_pki-subpki_role
+  vars:
+    self_signed:
+      - name: self.signed.com
+        type: serv_auth
+        cert_subj_alt:
+          - DNS:self.signed.com
+          - DNS:www.self.signed.com
 
 License
 -------
 
 BSD
 
-Author Information
+amaelFr
 ------------------
-
-An optional section for the role authors to include contact information, or a website (HTML is not allowed).
